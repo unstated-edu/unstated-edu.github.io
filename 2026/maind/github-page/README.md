@@ -41,7 +41,7 @@ This guide explains how to publish a web page on GitHub and test it on your phon
 These instructions will help you quickly test your web projects on various devices, including smartphones and tablets.
 
 - Create a new repository with your accountname.github.io
-  ![github](https://unstated-edu.github.io/2026/maind/github-page/1.png?raw=true)
+  ![github](https://github.com/unstated-edu/unstated-edu.github.io/blob/main/2026/maind/github-page/1.png?raw=true)
 
-- Settings -> Page
-  ![github](https://unstated-edu.github.io/2026/maind/github-page/2.png?raw=true)
+- Select your youraccountname.github.io -> Settings -> Page
+  ![github](https://github.com/unstated-edu/unstated-edu.github.io/blob/main/2026/maind/github-page/2.png?raw=true)
