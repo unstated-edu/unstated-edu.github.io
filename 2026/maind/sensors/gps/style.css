@@ -1,0 +1,17 @@
+bod, html {
+
+}
+
+video, canvas {
+  width: 25%;
+  height: 100%;
+  margin-bottom: 10px;
+}
+
+button {
+  margin-bottom: 10px;
+}
+
+button#save {
+  visibility: hidden;
+}
