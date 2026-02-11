@@ -1,39 +1,49 @@
 const needle = document.getElementById("needle");
-const value = document.getElementById("value");
-const btn = document.getElementById("start");
+  const value = document.getElementById("value");
+  const btn = document.getElementById("start");
 
-let currentHeading = 0;
+  let smoothHeading = null;
 
-function handleOrientation(event) {
-  // iOS Safari specific compass value
-  let heading;
-
-  if (event.webkitCompassHeading !== undefined) {
-    heading = event.webkitCompassHeading; // iOS
-  } else {
-    heading = 360 - event.alpha; // Android
+  // Smooth circular angles (handles wrap-around at 0/360)
+  function smoothAngle(prev, next, factor) {
+    // shortest angular difference (-180..180)
+    let delta = ((next - prev + 540) % 360) - 180;
+    return (prev + delta * factor + 360) % 360;
   }
 
-  if (heading == null) return;
-
-  currentHeading = heading;
-
-  needle.style.transform = `rotate(${heading}deg)`;
-  value.textContent = `Heading: ${heading.toFixed(1)}°`;
-}
-
-async function start() {
-  // iOS permission
-  if (
-    typeof DeviceOrientationEvent !== "undefined" &&
-    typeof DeviceOrientationEvent.requestPermission === "function"
-  ) {
-    const permission = await DeviceOrientationEvent.requestPermission();
-    if (permission !== "granted") return;
+  function getHeading(event) {
+    // iOS real compass heading
+    if (event.webkitCompassHeading !== undefined && event.webkitCompassAccuracy !== -1) {
+      return event.webkitCompassHeading;
+    }
+    // Android / others (alpha is clockwise from device)
+    if (event.alpha != null) return (360 - event.alpha) % 360;
+    return null;
   }
 
-  window.addEventListener("deviceorientation", handleOrientation, true);
-  btn.style.display = "none";
-}
+  function onOrientation(event) {
+    const heading = getHeading(event);
+    if (heading == null) return;
 
-btn.addEventListener("click", start);
+    if (smoothHeading == null) smoothHeading = heading;
+
+    // smoothing factor: 0.05 = very smooth, 0.2 = more responsive
+    smoothHeading = smoothAngle(smoothHeading, heading, 0.12);
+
+    needle.style.transform = `rotate(${smoothHeading}deg)`;
+    value.textContent = `Heading: ${smoothHeading.toFixed(1)}°`;
+  }
+
+  async function start() {
+    // iOS permission gate
+    if (typeof DeviceOrientationEvent !== "undefined" &&
+        typeof DeviceOrientationEvent.requestPermission === "function") {
+      const permission = await DeviceOrientationEvent.requestPermission();
+      if (permission !== "granted") return;
+    }
+
+    window.addEventListener("deviceorientation", onOrientation, true);
+    btn.style.display = "none";
+  }
+
+  btn.addEventListener("click", start);
