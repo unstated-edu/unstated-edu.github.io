@@ -1,38 +1,36 @@
-const vals = document.getElementById("vals");
-const btn = document.getElementById("start");
+const phone = document.getElementById("phone");
+  const values = document.getElementById("values");
+  const btn = document.getElementById("start");
 
-function onMotion(e) {
-  // Prefer "accelerationIncludingGravity" (more widely available)
-  const a = e.accelerationIncludingGravity || e.acceleration;
+  function handleOrientation(event) {
+    const alpha = event.alpha || 0; // compass
+    const beta = event.beta || 0;   // front/back tilt
+    const gamma = event.gamma || 0; // left/right tilt
 
-  if (!a) {
-    vals.innerHTML = "No accelerometer data available.";
-    return;
+    // Rotate 3D phone
+    phone.style.transform = `
+      rotateX(${beta}deg)
+      rotateY(${gamma}deg)
+      rotateZ(${alpha}deg)
+    `;
+
+    values.innerHTML = `
+      alpha: ${alpha.toFixed(1)}<br>
+      beta: ${beta.toFixed(1)}<br>
+      gamma: ${gamma.toFixed(1)}
+    `;
   }
 
-  const x = (a.x ?? 0).toFixed(2);
-  const y = (a.y ?? 0).toFixed(2);
-  const z = (a.z ?? 0).toFixed(2);
-
-  vals.innerHTML = `x: ${x}<br/>y: ${y}<br/>z: ${z}`;
-}
-
-async function start() {
-  // iOS (Safari) requires permission via user gesture
-  if (
-    typeof DeviceMotionEvent !== "undefined" &&
-    typeof DeviceMotionEvent.requestPermission === "function"
-  ) {
-    const res = await DeviceMotionEvent.requestPermission();
-    if (res !== "granted") {
-      vals.innerHTML = "Permission denied.";
-      return;
+  async function start() {
+    // iOS requires permission
+    if (typeof DeviceOrientationEvent !== "undefined" &&
+        typeof DeviceOrientationEvent.requestPermission === "function") {
+      const permission = await DeviceOrientationEvent.requestPermission();
+      if (permission !== "granted") return;
     }
+
+    window.addEventListener("deviceorientation", handleOrientation);
+    btn.style.display = "none";
   }
 
-  window.addEventListener("devicemotion", onMotion);
-  btn.disabled = true;
-  btn.textContent = "Motion enabled";
-}
-
-btn.addEventListener("click", start);
+  btn.addEventListener("click", start);

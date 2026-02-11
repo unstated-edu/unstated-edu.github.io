@@ -1,0 +1,14 @@
+.scene {
+  perspective: 800px;
+  margin-bottom: 30px;
+}
+
+.phone {
+  width: 120px;
+  height: 220px;
+  background: #222;
+  border-radius: 20px;
+  border: 4px solid white;
+  transform-style: preserve-3d;
+  transition: transform 0.1s linear;
+}
