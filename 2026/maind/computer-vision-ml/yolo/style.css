@@ -1,17 +1,30 @@
-bod, html {
-
+body {
 }
 
-video, canvas {
-  width: 25%;
-  height: 100%;
-  margin-bottom: 10px;
+h1 {
+  color: #333;
 }
 
-button {
-  margin-bottom: 10px;
+#container {
+  position: relative;
+  display: inline-block;
 }
 
-button#save {
-  visibility: hidden;
+video {
+  max-width: 100%;
+}
+
+canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+
+
+
+#detections {
+  margin-top: 20px;
+  border-radius: 8px;
+  overflow-y: auto;
 }
