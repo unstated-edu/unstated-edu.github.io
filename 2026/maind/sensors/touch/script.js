@@ -6,17 +6,17 @@ function update(e) {
   e.preventDefault();
 
   const t = e.touches; // all current touches on the screen
-  let text = `fingers: ${t.length}\n`;
+  let text = `fingers: ${t.length}<br />`;
 
   for (let i = 0; i < t.length; i++) {
-    text += `#${i + 1}: x=${Math.round(t[i].clientX)} y=${Math.round(t[i].clientY)}\n`;
+    text += `#${i + 1}: x=${Math.round(t[i].clientX)} y=${Math.round(t[i].clientY)}<br />`;
   }
 
-  info.textContent = text.trim();
+  info.innerHTML = text.trim();
 }
 
 function end() {
-  info.textContent = "fingers: 0";
+  info.innerHTML = "fingers: 0";
 }
 
 area.addEventListener("touchstart", update, { passive: false });
