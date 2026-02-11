@@ -1,36 +1,122 @@
 const phone = document.getElementById("phone");
-  const values = document.getElementById("values");
-  const btn = document.getElementById("start");
+const values = document.getElementById("values");
+const btn = document.getElementById("start");
 
-  function handleOrientation(event) {
-    const alpha = event.alpha || 0; // compass
-    const beta = event.beta || 0;   // front/back tilt
-    const gamma = event.gamma || 0; // left/right tilt
+let listening = false;
+let lastEventTime = 0;
 
-    // Rotate 3D phone
-    phone.style.transform = `
-      rotateX(${beta}deg)
-      rotateY(${gamma}deg)
-      rotateZ(${alpha}deg)
-    `;
+// smoothing
+let rotX = 0,
+  rotY = 0,
+  rotZ = 0;
 
-    values.innerHTML = `
-      alpha: ${alpha.toFixed(1)}<br>
-      beta: ${beta.toFixed(1)}<br>
-      gamma: ${gamma.toFixed(1)}
-    `;
+function getScreenAngle() {
+  // iOS Safari often uses window.orientation
+  const so =
+    screen.orientation && typeof screen.orientation.angle === "number"
+      ? screen.orientation.angle
+      : typeof window.orientation === "number"
+        ? window.orientation
+        : 0;
+  return so || 0;
+}
+
+function applyRotation(x, y, z) {
+  // small smoothing so it feels stable
+  const a = 0.15;
+  rotX = rotX * (1 - a) + x * a;
+  rotY = rotY * (1 - a) + y * a;
+  rotZ = rotZ * (1 - a) + z * a;
+
+  phone.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg)`;
+}
+
+function handleOrientation(e) {
+  lastEventTime = performance.now();
+
+  let alpha = e.alpha ?? 0; // 0..360
+  let beta = e.beta ?? 0; // -180..180 (front/back)
+  let gamma = e.gamma ?? 0; // -90..90 (left/right)
+
+  // --- Screen orientation compensation (portrait/landscape) ---
+  // We remap beta/gamma depending on screen rotation.
+  const angle = getScreenAngle();
+
+  let x = beta; // rotateX
+  let y = gamma; // rotateY
+  let z = alpha; // rotateZ (compass-like; can be noisy indoors)
+
+  if (angle === 90) {
+    // landscape (home button/right)
+    x = -gamma;
+    y = beta;
+  } else if (angle === -90 || angle === 270) {
+    // landscape (home button/left)
+    x = gamma;
+    y = -beta;
+  } else if (angle === 180) {
+    // upside down portrait
+    x = -beta;
+    y = -gamma;
   }
 
-  async function start() {
-    // iOS requires permission
-    if (typeof DeviceOrientationEvent !== "undefined" &&
-        typeof DeviceOrientationEvent.requestPermission === "function") {
-      const permission = await DeviceOrientationEvent.requestPermission();
-      if (permission !== "granted") return;
+  // Make it feel like a “phone in your hand”:
+  // - invert Y so left tilt goes left visually (often feels more natural)
+  applyRotation(x, -y, z);
+
+  values.innerHTML =
+    `screenAngle: ${angle}<br>` +
+    `alpha: ${alpha.toFixed(1)}<br>` +
+    `beta:  ${beta.toFixed(1)}<br>` +
+    `gamma: ${gamma.toFixed(1)}`;
+}
+
+function startListening() {
+  if (listening) return;
+  window.addEventListener("deviceorientation", handleOrientation, true);
+  listening = true;
+
+  // watchdog: if events stop, show it
+  const tick = () => {
+    if (!listening) return;
+    const dt = performance.now() - lastEventTime;
+    if (lastEventTime !== 0 && dt > 1200) {
+      values.innerHTML = "No sensor updates. Try tapping Enable sensors again.";
     }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
 
-    window.addEventListener("deviceorientation", handleOrientation);
-    btn.style.display = "none";
+async function requestPermissionIfNeeded() {
+  // iOS needs permission for motion/orientation in many cases
+  if (
+    typeof DeviceOrientationEvent !== "undefined" &&
+    typeof DeviceOrientationEvent.requestPermission === "function"
+  ) {
+    const res = await DeviceOrientationEvent.requestPermission();
+    if (res !== "granted") throw new Error("Permission denied");
   }
+}
 
-  btn.addEventListener("click", start);
+async function enable() {
+  try {
+    await requestPermissionIfNeeded();
+    startListening();
+    btn.textContent = "Sensors enabled";
+    btn.disabled = true;
+  } catch (err) {
+    values.textContent = "Permission denied / not available.";
+    console.error(err);
+  }
+}
+
+// Re-attach after background/foreground on iOS
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState === "visible" && !btn.disabled) {
+    // allow user to tap again if needed
+    values.textContent = "Tap Enable sensors again if values stopped.";
+  }
+});
+
+btn.addEventListener("click", enable);
