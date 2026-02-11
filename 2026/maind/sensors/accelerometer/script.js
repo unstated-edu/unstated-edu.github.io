@@ -18,19 +18,55 @@ let offsetGamma = 0;
 let lastBeta = 0;
 let lastGamma = 0;
 
-function applyRotation(targetX, targetY) {
-  const a = 0.18; // smoothing factor
-  rx = rx * (1 - a) + targetX * a;
-  ry = ry * (1 - a) + targetY * a;
-
-  // Clamp a bit so it stays readable (optional)
-  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-  const cx = clamp(rx, -80, 80);
-  const cy = clamp(ry, -80, 80);
-
-  phone.style.transform = `rotateX(${cx}deg) rotateY(${cy}deg)`;
+async function enable() {
+  try {
+    await requestPermission();
+    startListening();
+    resetBtn.disabled = false;
+    enableBtn.textContent = "Sensors enabled";
+  } catch (err) {
+    values.textContent = "Permission denied / not available.";
+    console.error(err);
+  }
 }
 
+async function requestPermission() {
+  // iOS Safari permission gate
+  if (
+    typeof DeviceOrientationEvent !== "undefined" &&
+    typeof DeviceOrientationEvent.requestPermission === "function"
+  ) {
+    const res = await DeviceOrientationEvent.requestPermission();
+    if (res !== "granted") throw new Error("Permission denied");
+  }
+}
+
+// start listening to the accelerometer
+function startListening() {
+  if (listening) return;
+  window.addEventListener("deviceorientation", onOrientation, true);
+  listening = true;
+
+  // Watchdog: if events stop coming in, tell you
+  const tick = () => {
+    if (!listening) return;
+
+    // check if the accelerometer is still sending data
+    const dt = performance.now() - lastT;
+    if (lastT && dt > 1200) {
+      // show a message to the user
+      values.innerHTML = "Sensor updates stopped. Tap “Enable sensors” again.";
+    }
+
+    // request the next frame
+    requestAnimationFrame(tick);
+  };
+
+  // request the first frame
+  requestAnimationFrame(tick);
+}
+
+// on orientation change
 function onOrientation(e) {
   lastT = performance.now();
 
@@ -54,45 +90,19 @@ function onOrientation(e) {
     `center gamma: ${offsetGamma.toFixed(1)}°`;
 }
 
-function startListening() {
-  if (listening) return;
-  window.addEventListener("deviceorientation", onOrientation, true);
-  listening = true;
+function applyRotation(targetX, targetY) {
+  const a = 0.18; // smoothing factor
+  rx = rx * (1 - a) + targetX * a;
+  ry = ry * (1 - a) + targetY * a;
 
-  // Watchdog: if events stop coming in, tell you
-  const tick = () => {
-    if (!listening) return;
-    const dt = performance.now() - lastT;
-    if (lastT && dt > 1200) {
-      values.innerHTML =
-        "⚠️ Sensor updates stopped. Tap “Enable sensors” again.";
-    }
-    requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
-}
+  // Clamp a bit so it stays readable (optional)
+  //Keep a value inside a given range.
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  const cx = clamp(rx, -80, 80);
+  const cy = clamp(ry, -80, 80);
 
-async function requestPermission() {
-  // iOS Safari permission gate
-  if (
-    typeof DeviceOrientationEvent !== "undefined" &&
-    typeof DeviceOrientationEvent.requestPermission === "function"
-  ) {
-    const res = await DeviceOrientationEvent.requestPermission();
-    if (res !== "granted") throw new Error("Permission denied");
-  }
-}
-
-async function enable() {
-  try {
-    await requestPermission();
-    startListening();
-    resetBtn.disabled = false;
-    enableBtn.textContent = "Sensors enabled";
-  } catch (err) {
-    values.textContent = "Permission denied / not available.";
-    console.error(err);
-  }
+  // apply the rotation to the phone
+  phone.style.transform = `rotateX(${cx}deg) rotateY(${cy}deg)`;
 }
 
 function resetCenter() {
@@ -110,5 +120,8 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+// enable the accelerometer
 enableBtn.addEventListener("click", enable);
+
+// reset the center of the phone
 resetBtn.addEventListener("click", resetCenter);
