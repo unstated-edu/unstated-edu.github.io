@@ -1,52 +1,60 @@
-// Elements
-const video = document.getElementById("video");
-const captureButton = document.getElementById("capture");
-const saveButton = document.getElementById("save");
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-const filters = document.querySelectorAll(".filters button");
-let currentFilter = "none";
+const out = document.getElementById("out");
+const onceBtn = document.getElementById("once");
+const watchBtn = document.getElementById("watch");
+const stopBtn = document.getElementById("stop");
 
-// Start camera
-startCamera();
+let watchId = null;
 
-async function startCamera() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: false,
-    });
-
-    video.srcObject = stream;
-  } catch (err) {
-    console.error("Error accessing camera:", err);
-  }
+function show(pos) {
+  const { latitude, longitude, accuracy } = pos.coords;
+  out.textContent =
+    `lat: ${latitude}\n` +
+    `lon: ${longitude}\n` +
+    `accuracy: ±${Math.round(accuracy)} m\n` +
+    `timestamp: ${new Date(pos.timestamp).toLocaleString()}`;
 }
-// start camera
-startCamera();
 
-// Filters buttons
-filters.forEach((button) => {
-  button.addEventListener("click", () => {
-    currentFilter = button.dataset.filter;
-    video.style.filter = currentFilter;
+function showError(err) {
+  out.textContent = `Error (${err.code}): ${err.message}`;
+}
+
+function getOnce() {
+  if (!navigator.geolocation) {
+    out.textContent = "Geolocation not supported in this browser.";
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(show, showError, {
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 0,
   });
-});
+}
 
-// Capture
-captureButton.addEventListener("click", () => {
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  ctx.filter = currentFilter;
-  ctx.drawImage(video, 0, 0);
-  saveButton.style.visibility = "visible";
-});
+function startWatch() {
+  if (!navigator.geolocation) {
+    out.textContent = "Geolocation not supported in this browser.";
+    return;
+  }
 
-// Save image
-saveButton.addEventListener("click", () => {
-  const image = canvas.toDataURL("image/jpeg", 0.9);
-  const link = document.createElement("a");
-  link.href = image;
-  link.download = "photo.jpg";
-  link.click();
-});
+  if (watchId !== null) return;
+
+  watchId = navigator.geolocation.watchPosition(show, showError, {
+    enableHighAccuracy: true,
+    maximumAge: 0,
+  });
+
+  stopBtn.disabled = false;
+}
+
+function stopWatch() {
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+  stopBtn.disabled = true;
+}
+
+onceBtn.addEventListener("click", getOnce);
+watchBtn.addEventListener("click", startWatch);
+stopBtn.addEventListener("click", stopWatch);
