@@ -1,124 +1,165 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Tilt Phone (Devicemotion)</title>
-    <style>
-      body {
-        margin: 0;
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: #111;
-        color: #fff;
-        font-family: system-ui;
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Phone Solid (DeviceOrientation)</title>
+  <style>
+    body{
+      margin:0; height:100vh; display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      background:#111; color:#fff; font-family:system-ui, sans-serif;
+      gap:14px;
+    }
+    .scene{ perspective:900px; }
+    .phone{
+      width:130px; height:240px;
+      border-radius:26px;
+      border:3px solid #fff;
+      background:linear-gradient(180deg,#2a2a2a,#121212);
+      transform-style:preserve-3d;
+      box-shadow:0 25px 70px rgba(0,0,0,.5);
+    }
+    .row{ display:flex; gap:10px; }
+    button{
+      padding:10px 14px; border-radius:10px; border:none; cursor:pointer;
+      font-size:15px;
+    }
+    #values{
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      text-align:center; opacity:.9; line-height:1.35;
+    }
+    .hint{ opacity:.75; font-size:13px; text-align:center; max-width:320px; }
+  </style>
+</head>
+<body>
+
+  <div class="row">
+    <button id="enable">Enable sensors</button>
+    <button id="reset" disabled>Reset center</button>
+  </div>
+
+  <div class="scene">
+    <div class="phone" id="phone"></div>
+  </div>
+
+  <div id="values">waiting…</div>
+  <div class="hint">
+    Tip: on iPhone Safari, keep the phone in portrait and disable Rotation Lock if you rotate the device.
+  </div>
+
+<script>
+  const phone = document.getElementById("phone");
+  const values = document.getElementById("values");
+  const enableBtn = document.getElementById("enable");
+  const resetBtn = document.getElementById("reset");
+
+  let listening = false;
+  let lastT = 0;
+
+  // smoothing
+  let rx = 0, ry = 0;
+
+  // calibration offsets (so you can define "neutral")
+  let offsetBeta = 0;
+  let offsetGamma = 0;
+
+  // remember last raw values so Reset can capture current pose
+  let lastBeta = 0;
+  let lastGamma = 0;
+
+  function applyRotation(targetX, targetY) {
+    const a = 0.18; // smoothing factor
+    rx = rx * (1 - a) + targetX * a;
+    ry = ry * (1 - a) + targetY * a;
+
+    // Clamp a bit so it stays readable (optional)
+    const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+    const cx = clamp(rx, -80, 80);
+    const cy = clamp(ry, -80, 80);
+
+    phone.style.transform = `rotateX(${cx}deg) rotateY(${cy}deg)`;
+  }
+
+  function onOrientation(e) {
+    lastT = performance.now();
+
+    const beta = (e.beta ?? 0);   // front/back tilt
+    const gamma = (e.gamma ?? 0); // left/right tilt
+
+    lastBeta = beta;
+    lastGamma = gamma;
+
+    // Apply calibration offsets
+    const b = beta - offsetBeta;
+    const g = gamma - offsetGamma;
+
+    // Map directly: rotateX = beta, rotateY = gamma (invert Y for more natural feel)
+    applyRotation(b, g);
+
+    values.innerHTML =
+      `beta (front/back): ${(beta).toFixed(1)}°<br>` +
+      `gamma (left/right): ${(gamma).toFixed(1)}°<br>` +
+      `center beta: ${offsetBeta.toFixed(1)}°<br>` +
+      `center gamma: ${offsetGamma.toFixed(1)}°`;
+  }
+
+  function startListening() {
+    if (listening) return;
+    window.addEventListener("deviceorientation", onOrientation, true);
+    listening = true;
+
+    // Watchdog: if events stop coming in, tell you
+    const tick = () => {
+      if (!listening) return;
+      const dt = performance.now() - lastT;
+      if (lastT && dt > 1200) {
+        values.innerHTML = "⚠️ Sensor updates stopped. Tap “Enable sensors” again.";
       }
-      .scene {
-        perspective: 900px;
-        margin: 14px 0;
-      }
-      .phone {
-        width: 120px;
-        height: 220px;
-        border-radius: 22px;
-        border: 3px solid #fff;
-        background: #222;
-        transform-style: preserve-3d;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-      }
-      #values {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        text-align: center;
-        opacity: 0.9;
-      }
-      button {
-        padding: 10px 16px;
-        border-radius: 10px;
-        border: none;
-        cursor: pointer;
-        font-size: 16px;
-      }
-    </style>
-  </head>
-  <body>
-    <button id="start">Enable motion</button>
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
 
-    <div class="scene">
-      <div class="phone" id="phone"></div>
-    </div>
+  async function requestPermission() {
+    // iOS Safari permission gate
+    if (typeof DeviceOrientationEvent !== "undefined" &&
+        typeof DeviceOrientationEvent.requestPermission === "function") {
+      const res = await DeviceOrientationEvent.requestPermission();
+      if (res !== "granted") throw new Error("Permission denied");
+    }
+  }
 
-    <div id="values">waiting…</div>
+  async function enable() {
+    try {
+      await requestPermission();
+      startListening();
+      resetBtn.disabled = false;
+      enableBtn.textContent = "Sensors enabled";
+    } catch (err) {
+      values.textContent = "Permission denied / not available.";
+      console.error(err);
+    }
+  }
 
-    <script>
-      const phone = document.getElementById("phone");
-      const values = document.getElementById("values");
-      const btn = document.getElementById("start");
+  function resetCenter() {
+    // Take current pose as “neutral”
+    offsetBeta = lastBeta;
+    offsetGamma = lastGamma;
+  }
 
-      let listening = false;
-      let rotX = 0,
-        rotY = 0;
+  // Auto-recover after tab switch / lock screen
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && listening) {
+      // Re-attach to be safe (some iOS versions stall)
+      window.removeEventListener("deviceorientation", onOrientation, true);
+      window.addEventListener("deviceorientation", onOrientation, true);
+    }
+  });
 
-      function apply(x, y) {
-        // smoothing
-        const a = 0.15;
-        rotX = rotX * (1 - a) + x * a;
-        rotY = rotY * (1 - a) + y * a;
-        phone.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
-      }
+  enableBtn.addEventListener("click", enable);
+  resetBtn.addEventListener("click", resetCenter);
+</script>
 
-      function onMotion(e) {
-        const a = e.accelerationIncludingGravity;
-        if (!a) return;
-
-        const ax = a.x ?? 0;
-        const ay = a.y ?? 0;
-        const az = a.z ?? 0;
-
-        // Compute tilt from gravity vector:
-        // pitch (front/back), roll (left/right)
-        const pitch =
-          Math.atan2(ax, Math.sqrt(ay * ay + az * az)) * (180 / Math.PI);
-        const roll = Math.atan2(ay, az) * (180 / Math.PI);
-
-        // Feel more natural as a “phone in hand”
-        apply(pitch, -roll);
-
-        values.innerHTML =
-          `ax: ${ax.toFixed(2)}<br>` +
-          `ay: ${ay.toFixed(2)}<br>` +
-          `az: ${az.toFixed(2)}<br><br>` +
-          `pitch: ${pitch.toFixed(1)}°<br>` +
-          `roll: ${roll.toFixed(1)}°`;
-      }
-
-      async function enable() {
-        try {
-          // iOS permission
-          if (
-            typeof DeviceMotionEvent !== "undefined" &&
-            typeof DeviceMotionEvent.requestPermission === "function"
-          ) {
-            const res = await DeviceMotionEvent.requestPermission();
-            if (res !== "granted") throw new Error("Permission denied");
-          }
-
-          if (!listening) {
-            window.addEventListener("devicemotion", onMotion, true);
-            listening = true;
-          }
-
-          btn.disabled = true;
-          btn.textContent = "Motion enabled";
-        } catch (err) {
-          values.textContent = "Permission denied / motion not available.";
-          console.error(err);
-        }
-      }
-
-      btn.addEventListener("click", enable);
-    </script>
-  </body>
+</body>
 </html>
