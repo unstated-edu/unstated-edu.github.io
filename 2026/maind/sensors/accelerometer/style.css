@@ -5,38 +5,25 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #111;
-  color: #fff;
-  font-family: system-ui, sans-serif;
+  background: #fff;
+  color: #000;
+  gap: 14px;
 }
 .scene {
   perspective: 900px;
-  margin: 18px 0;
 }
 .phone {
-  width: 120px;
-  height: 220px;
-  border-radius: 22px;
-  border: 3px solid #fff;
-  background: linear-gradient(180deg, #222, #111);
+  width: 130px;
+  height: 240px;
+  background: #000;
   transform-style: preserve-3d;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
 }
-.hint {
-  opacity: 0.8;
-  font-size: 14px;
-  margin-top: 6px;
-  text-align: center;
+.row {
+  display: flex;
+  gap: 10px;
 }
+
 #values {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   text-align: center;
-  opacity: 0.9;
-}
-button {
-  padding: 10px 16px;
-  border-radius: 10px;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
+
 }

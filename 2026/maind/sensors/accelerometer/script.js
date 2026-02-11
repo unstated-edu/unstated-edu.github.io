@@ -1,95 +1,79 @@
 const phone = document.getElementById("phone");
 const values = document.getElementById("values");
-const btn = document.getElementById("start");
+const enableBtn = document.getElementById("enable");
+const resetBtn = document.getElementById("reset");
 
 let listening = false;
-let lastEventTime = 0;
+let lastT = 0;
 
 // smoothing
-let rotX = 0,
-  rotY = 0,
-  rotZ = 0;
+let rx = 0,
+  ry = 0;
 
-function getScreenAngle() {
-  // iOS Safari often uses window.orientation
-  const so =
-    screen.orientation && typeof screen.orientation.angle === "number"
-      ? screen.orientation.angle
-      : typeof window.orientation === "number"
-        ? window.orientation
-        : 0;
-  return so || 0;
+// calibration offsets (so you can define "neutral")
+let offsetBeta = 0;
+let offsetGamma = 0;
+
+// remember last raw values so Reset can capture current pose
+let lastBeta = 0;
+let lastGamma = 0;
+
+function applyRotation(targetX, targetY) {
+  const a = 0.18; // smoothing factor
+  rx = rx * (1 - a) + targetX * a;
+  ry = ry * (1 - a) + targetY * a;
+
+  // Clamp a bit so it stays readable (optional)
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  const cx = clamp(rx, -80, 80);
+  const cy = clamp(ry, -80, 80);
+
+  phone.style.transform = `rotateX(${cx}deg) rotateY(${cy}deg)`;
 }
 
-function applyRotation(x, y, z) {
-  // small smoothing so it feels stable
-  const a = 0.15;
-  rotX = rotX * (1 - a) + x * a;
-  rotY = rotY * (1 - a) + y * a;
-  rotZ = rotZ * (1 - a) + z * a;
+function onOrientation(e) {
+  lastT = performance.now();
 
-  phone.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg)`;
-}
+  const beta = e.beta ?? 0; // front/back tilt
+  const gamma = e.gamma ?? 0; // left/right tilt
 
-function handleOrientation(e) {
-  lastEventTime = performance.now();
+  lastBeta = beta;
+  lastGamma = gamma;
 
-  let alpha = e.alpha ?? 0; // 0..360
-  let beta = e.beta ?? 0; // -180..180 (front/back)
-  let gamma = e.gamma ?? 0; // -90..90 (left/right)
+  // Apply calibration offsets
+  const b = beta - offsetBeta;
+  const g = gamma - offsetGamma;
 
-  // --- Screen orientation compensation (portrait/landscape) ---
-  // We remap beta/gamma depending on screen rotation.
-  const angle = getScreenAngle();
-
-  let x = beta; // rotateX
-  let y = gamma; // rotateY
-  let z = alpha; // rotateZ (compass-like; can be noisy indoors)
-
-  if (angle === 90) {
-    // landscape (home button/right)
-    x = -gamma;
-    y = beta;
-  } else if (angle === -90 || angle === 270) {
-    // landscape (home button/left)
-    x = gamma;
-    y = -beta;
-  } else if (angle === 180) {
-    // upside down portrait
-    x = -beta;
-    y = -gamma;
-  }
-
-  // Make it feel like a “phone in your hand”:
-  // - invert Y so left tilt goes left visually (often feels more natural)
-  applyRotation(x, -y, z);
+  // Map directly: rotateX = beta, rotateY = gamma (invert Y for more natural feel)
+  applyRotation(b, g);
 
   values.innerHTML =
-    `screenAngle: ${angle}<br>` +
-    `alpha: ${alpha.toFixed(1)}<br>` +
-    `beta:  ${beta.toFixed(1)}<br>` +
-    `gamma: ${gamma.toFixed(1)}`;
+    `beta (front/back): ${beta.toFixed(1)}°<br>` +
+    `gamma (left/right): ${gamma.toFixed(1)}°<br>` +
+    `center beta: ${offsetBeta.toFixed(1)}°<br>` +
+    `center gamma: ${offsetGamma.toFixed(1)}°`;
 }
 
 function startListening() {
   if (listening) return;
-  window.addEventListener("deviceorientation", handleOrientation, true);
+  window.addEventListener("deviceorientation", onOrientation, true);
   listening = true;
 
-  // watchdog: if events stop, show it
+  // Watchdog: if events stop coming in, tell you
   const tick = () => {
     if (!listening) return;
-    const dt = performance.now() - lastEventTime;
-    if (lastEventTime !== 0 && dt > 1200) {
-      values.innerHTML = "No sensor updates. Try tapping Enable sensors again.";
+    const dt = performance.now() - lastT;
+    if (lastT && dt > 1200) {
+      values.innerHTML =
+        "⚠️ Sensor updates stopped. Tap “Enable sensors” again.";
     }
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
 }
 
-async function requestPermissionIfNeeded() {
-  // iOS needs permission for motion/orientation in many cases
+async function requestPermission() {
+  // iOS Safari permission gate
   if (
     typeof DeviceOrientationEvent !== "undefined" &&
     typeof DeviceOrientationEvent.requestPermission === "function"
@@ -101,22 +85,30 @@ async function requestPermissionIfNeeded() {
 
 async function enable() {
   try {
-    await requestPermissionIfNeeded();
+    await requestPermission();
     startListening();
-    btn.textContent = "Sensors enabled";
-    btn.disabled = true;
+    resetBtn.disabled = false;
+    enableBtn.textContent = "Sensors enabled";
   } catch (err) {
     values.textContent = "Permission denied / not available.";
     console.error(err);
   }
 }
 
-// Re-attach after background/foreground on iOS
-document.addEventListener("visibilitychange", async () => {
-  if (document.visibilityState === "visible" && !btn.disabled) {
-    // allow user to tap again if needed
-    values.textContent = "Tap Enable sensors again if values stopped.";
+function resetCenter() {
+  // Take current pose as “neutral”
+  offsetBeta = lastBeta;
+  offsetGamma = lastGamma;
+}
+
+// Auto-recover after tab switch / lock screen
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && listening) {
+    // Re-attach to be safe (some iOS versions stall)
+    window.removeEventListener("deviceorientation", onOrientation, true);
+    window.addEventListener("deviceorientation", onOrientation, true);
   }
 });
 
-btn.addEventListener("click", enable);
+enableBtn.addEventListener("click", enable);
+resetBtn.addEventListener("click", resetCenter);
