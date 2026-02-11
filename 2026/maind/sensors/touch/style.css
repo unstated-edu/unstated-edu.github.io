@@ -1,0 +1,19 @@
+body {
+  margin: 0;
+  height: 100vh;
+}
+#info {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+}
+#area {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none; /* important: prevents scroll/zoom while touching */
+}
