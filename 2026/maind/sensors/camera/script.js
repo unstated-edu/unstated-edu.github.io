@@ -1,8 +1,14 @@
+// Elements
 const video = document.getElementById("video");
 const captureButton = document.getElementById("capture");
 const saveButton = document.getElementById("save");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+const filters = document.querySelectorAll(".filters button");
+let currentFilter = "none";
+
+// Start camera
+startCamera();
 
 async function startCamera() {
   try {
@@ -19,15 +25,24 @@ async function startCamera() {
 // start camera
 startCamera();
 
-// capture
+// Filters buttons
+filters.forEach((button) => {
+  button.addEventListener("click", () => {
+    currentFilter = button.dataset.filter;
+    video.style.filter = currentFilter;
+  });
+});
+
+// Capture
 captureButton.addEventListener("click", () => {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
+  ctx.filter = currentFilter;
   ctx.drawImage(video, 0, 0);
   saveButton.style.visibility = "visible";
 });
 
-// save image
+// Save image
 saveButton.addEventListener("click", () => {
   const image = canvas.toDataURL("image/jpeg", 0.9);
   const link = document.createElement("a");
