@@ -1,43 +1,28 @@
-
-#container {
-  position: relative;
-  display: inline-block;
-  margin: 20px auto;
-}
-
 video {
-  border-radius: 8px;
   max-width: 100%;
-  transform: scaleX(-1); 
+  display: block;
 }
 
 canvas {
   position: absolute;
   top: 0;
   left: 0;
-  border-radius: 8px;
-  transform: scaleX(-1); 
-}
-
-#status {
-  background: white;
+  max-width: 100%;
+  display: block;
 }
 
 button {
-  margin-bottom: 20px;
+  margin-top: 10px;
 }
 
 #info {
+  margin-top: 10px;
   text-align: left;
   background: white;
 }
 
-.keypoint-info {
-  display: inline-block;
-  margin: 5px 10px;
-  padding: 5px 10px;
-  background: black;
-  color: white;
-  border-radius: 4px;
-  font-size: 14px;
+.face-info {
+}
+
+.feature-info {
 }
