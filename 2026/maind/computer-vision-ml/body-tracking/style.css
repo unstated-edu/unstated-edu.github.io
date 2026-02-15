@@ -1,43 +1,44 @@
+body {
+  font-family: Arial, sans-serif;
+}
 
 #container {
   position: relative;
   display: inline-block;
-  margin: 20px auto;
 }
 
 video {
-  border-radius: 8px;
   max-width: 100%;
-  transform: scaleX(-1); /* Mirror the video */
+  display: block;
 }
 
 canvas {
   position: absolute;
   top: 0;
   left: 0;
-  border-radius: 8px;
-  transform: scaleX(-1); /* Mirror the canvas */
+  max-width: 100%;
+  display: block;
 }
 
 #status {
-  background: white;
 }
 
 button {
-  margin-bottom: 20px;
+  margin: 10px 0px;
 }
 
 #info {
-  text-align: left;
-  background: white;
+}
+
+.person-info {
+  margin: 10px 0;
+  padding: 10px;
 }
 
 .keypoint-info {
   display: inline-block;
-  margin: 5px 10px;
-  padding: 5px 10px;
+  margin: 3px 5px;
+  padding: 3px 8px;
   background: black;
   color: white;
-  border-radius: 4px;
-  font-size: 14px;
 }
