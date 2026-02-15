@@ -8,7 +8,7 @@
 video {
   border-radius: 8px;
   max-width: 100%;
-  /* transform: scaleX(-1); Mirror the video */
+  transform: scaleX(-1); 
 }
 
 canvas {
@@ -16,7 +16,7 @@ canvas {
   top: 0;
   left: 0;
   border-radius: 8px;
-  /* transform: scaleX(-1);  */
+  transform: scaleX(-1); 
 }
 
 #status {
