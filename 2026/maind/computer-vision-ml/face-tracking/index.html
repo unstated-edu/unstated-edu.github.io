@@ -102,8 +102,8 @@
     <button id="toggleNumbers" style="background: #FF9800;">Hide Numbers</button>
     
     <div id="container">
-        <video id="webcam" width="640" height="480" autoplay muted></video>
-        <canvas id="canvas" width="640" height="480"></canvas>
+        <video id="webcam" autoplay muted playsinline></video>
+        <canvas id="canvas"></canvas>
     </div>
     
     <div id="info">
@@ -182,11 +182,19 @@
         async function startCamera() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: 640, height: 480 },
+                    video: { 
+                        width: { ideal: 640 }, 
+                        height: { ideal: 480 },
+                        facingMode: "user"
+                    },
                 });
                 video.srcObject = stream;
 
                 video.addEventListener("loadeddata", () => {
+                    // Match canvas size to actual video dimensions
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    
                     status.textContent = "✅ Detecting faces...";
                     startBtn.textContent = "Camera Running";
                     startBtn.disabled = true;
