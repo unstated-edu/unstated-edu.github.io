@@ -9,7 +9,7 @@
  let model = null;
  let isDetecting = false;
 
- // Load the COCO-SSD model (similar to YOLO)
+ // Load the COCO-SSD model
  async function loadModel() {
      try {
          status.textContent = 'Loading AI model...';
