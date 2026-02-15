@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hand Tracking</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="status">Loading model... Please wait</div>
+
+    <div id="container">
+      <video id="webcam" autoplay muted playsinline></video>
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <div id="buttons">
+      <button id="startBtn" disabled>Start Camera</button>
+      <button id="toggleNumbers">Hide Numbers</button>
+    </div>
+    <div id="info">
+      <strong>Detected Hands:</strong>
+      <div id="handList">Waiting for hand detection...</div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/hand-pose-detection@2.0.0"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
