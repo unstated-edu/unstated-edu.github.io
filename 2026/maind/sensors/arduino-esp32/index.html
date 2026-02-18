@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Arduino Serial Reader</title>
+  </head>
+  <body>
+    <h1>Arduino Serial Reader</h1>
+    <div id="status">Click the button to connect to Arduino</div>
+    <button id="connectBtn">Connect Arduino</button>
+    <div id="valueDisplay">—</div>
+    <div id="log"></div>
+
+    <script>
+      let port = null;
+      let reader = null;
+
+      const status = document.getElementById("status");
+      const valueDisplay = document.getElementById("valueDisplay");
+      const log = document.getElementById("log");
+
+      function addLog(msg) {
+        const line = document.createElement("div");
+        line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        log.appendChild(line);
+        log.scrollTop = log.scrollHeight;
+      }
+
+      async function connectSerial() {
+        try {
+          // Ask the user to select a serial port (triggers browser popup)
+          port = await navigator.serial.requestPort();
+
+          // Open the port with the same baud rate as Arduino
+          await port.open({ baudRate: 9600 });
+
+          status.textContent = "Arduino connected!";
+          document.getElementById("connectBtn").disabled = true;
+          addLog("Connected to Arduino");
+
+          // Start reading incoming data
+          readSerial();
+        } catch (err) {
+          status.textContent = "Connection failed: " + err.message;
+          console.error("Connection error:", err);
+        }
+      }
+
+      async function readSerial() {
+        // Create a text decoder to convert raw bytes into readable strings
+        const decoder = new TextDecoderStream();
+
+        //  convert those bytes into a readable string
+        port.readable.pipeTo(decoder.writable);
+
+        //  get a reader to read the data from the serial port
+        reader = decoder.readable.getReader();
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+
+          // Stop reading if the stream is closed
+          if (done) break;
+
+          buffer += value;
+
+          // Serial.println() adds "\n" at the end of each value
+          if (buffer.includes("\n")) {
+            const lines = buffer.split("\n");
+
+            // Keep the last incomplete chunk in the buffer
+            // Data doesn't always arrive in perfect complete lines. Sometimes a message gets split across multiple "chunks" as it arrives. For example, instead of receiving "1\n" all at once, you might receive "1" and then "\n" in two separate reads.
+            buffer = lines.pop();
+
+            lines.forEach((line) => {
+              const val = parseInt(line.trim());
+
+              if (!isNaN(val)) {
+                console.log("Value from Arduino:", val);
+                valueDisplay.textContent = val;
+                addLog(`Received: ${val}`);
+
+                // Do something based on the value
+                if (val === 1) {
+                  valueDisplay.style.color = "#00ff88"; // green
+                } else if (val === 0) {
+                  valueDisplay.style.color = "#ff4444"; // red
+                }
+              }
+            });
+          }
+        }
+      }
+
+      // A user gesture is required to open a serial port (browser security rule)
+      document
+        .getElementById("connectBtn")
+        .addEventListener("click", connectSerial);
+    </script>
+  </body>
+</html>
