@@ -13,7 +13,7 @@ function update(e) {
     text += `#${i + 1}: x=${Math.round(t[i].clientX)} y=${Math.round(t[i].clientY)}<br />`;
   }
 
-  if (t.length > 3) {
+  if (t.length > 4) {
    document.body.style.backgroundColor = "black";
   } else {
     document.body.style.backgroundColor = "white";
