@@ -1,67 +1,131 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-  <title>Receiver</title>
-  <style>
-    body {
-      margin: 0;
-      background: #111;
-      overflow: hidden;
-    }
-    #ball {
-      width: 80px;
-      height: 80px;
-      background: #00ff88;
-      border-radius: 50%;
-      position: absolute;
-      transform: translate(-50%, -50%);
-      transition: left 0.1s, top 0.1s;
-    }
-    #info {
-      position: fixed;
-      top: 20px;
-      left: 20px;
-      color: white;
-      font-family: Arial;
-      font-size: 18px;
-      line-height: 2;
-    }
-  </style>
-</head>
-<body>
+  <head>
+    <title>Receiver</title>
+    <style>
+      body {
+        margin: 0;
+        background: #111;
+        overflow: hidden;
+      }
+      #ball {
+        width: 80px;
+        height: 80px;
+        background: #00ff88;
+        border-radius: 50%;
+        position: absolute;
+        left: 0;
+        top: 0;
+        transform: translate3d(-100px, -100px, 0);
+        will-change: transform;
+      }
+      #info {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        color: #fff;
+        font-family: Arial;
+        font-size: 18px;
+        line-height: 2;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="info">Waiting for phone...</div>
+    <div id="ball"></div>
 
-  <div id="info">Waiting for phone...</div>
-  <div id="ball"></div>
+    <script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
+    <script>
+      var API_KEY = "biplaQ.iovzWA:ffx3oR9mKYBjDAfLiHlVJ4KWacO_9mEU6KOocxicrKY";
+      var client = new Ably.Realtime(API_KEY);
+      var channel = client.channels.get("motion");
 
-  <script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
-  <script>
-    var API_KEY = "biplaQ.iovzWA:ffx3oR9mKYBjDAfLiHlVJ4KWacO_9mEU6KOocxicrKY";
+      var ball = document.getElementById("ball");
+      var info = document.getElementById("info");
 
-    var client = new Ably.Realtime(API_KEY);
-    var channel = client.channels.get("motion");
+      // --- stato ---
+      let targetX = -100,
+        targetY = -100;
+      let x = -100,
+        y = -100;
+      let latest = null;
 
-    var ball = document.getElementById("ball");
-    var info = document.getElementById("info");
+      // smoothing (0..1) — higher = follows faster, lower = smoother
+      const SMOOTH = 0.25;
 
-    channel.subscribe("update", function(msg) {
-      console.log("Message received:", msg.data);
+      // mappa
+      function map(value, inMin, inMax, outMin, outMax) {
+        return ((value - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
+      }
 
-      var data = msg.data;
-      info.innerHTML = "alpha: " + data.alpha + "<br>beta: " + data.beta + "<br>gamma: " + data.gamma;
+      // render loop at 60fps
+      function tick() {
+        // lerp
+        x += (targetX - x) * SMOOTH;
+        y += (targetY - y) * SMOOTH;
 
-      var x = map(data.gamma, -90, 90, 0, window.innerWidth);
-      var y = map(data.beta, -90, 90, 0, window.innerHeight);
+        ball.style.transform = `translate3d(${x}px, ${y}px, 0)`;
 
-      ball.style.left = x + "px";
-      ball.style.top = y + "px";
-    });
+        // aggiorna testo non ad ogni msg (evita layout thrash)
+        if (latest) {
+          info.innerHTML =
+            `alpha: ${latest.alpha}<br>` +
+            `beta: ${latest.beta}<br>` +
+            `gamma: ${latest.gamma}`;
+          latest = null;
+        }
 
-    console.log("Subscribed, waiting for messages...");
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
 
-    function map(value, inMin, inMax, outMin, outMax) {
-      return (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
-    }
-  </script>
+      // subscribe: better without event filter (MQTT often doesn't use "update")
+      channel.subscribe(function (msg) {
+        let data = msg.data;
 
-</body>
+        // if the publisher is Ably Realtime JSON, here data is already an object
+        // if the message is a Uint8Array or ArrayBuffer, try to decode it as a string and then parse it as JSON
+        if (typeof data === "string") {
+          try {
+            data = JSON.parse(data);
+          } catch (e) {
+            return;
+          }
+        } else if (data instanceof Uint8Array || data instanceof ArrayBuffer) {
+          try {
+            const decoder = new TextDecoder();
+            const text =
+              data instanceof Uint8Array
+                ? decoder.decode(data)
+                : decoder.decode(new Uint8Array(data));
+            data = JSON.parse(text);
+          } catch (e) {
+            return;
+          }
+        }
+
+        if (
+          !data ||
+          typeof data.beta !== "number" ||
+          typeof data.gamma !== "number"
+        )
+          return;
+
+        // clamp
+        const beta = Math.max(-90, Math.min(90, data.beta));
+        const gamma = Math.max(-90, Math.min(90, data.gamma));
+
+        targetX = map(gamma, -90, 90, 0, window.innerWidth);
+        targetY = map(beta, -90, 90, 0, window.innerHeight);
+
+        // update latest
+        latest = data;
+      });
+
+      // optional: connection status
+      client.connection.on(function (stateChange) {
+        console.log("Ably connection:", stateChange.current);
+      });
+    </script>
+  </body>
 </html>
