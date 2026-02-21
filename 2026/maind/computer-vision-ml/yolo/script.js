@@ -58,6 +58,11 @@
      // Draw bounding boxes and labels
      let detectionText = '';
      predictions.forEach(prediction => {
+
+        console.log(prediction);
+
+
+        
          // Draw bounding box
          ctx.strokeStyle = '#00FF00';
          ctx.lineWidth = 3;

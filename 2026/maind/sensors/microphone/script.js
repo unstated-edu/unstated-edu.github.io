@@ -32,7 +32,7 @@ startButton.addEventListener("click", async () => {
 
     // use the volume here
     document.getElementById("value").textContent = volume;
-    document.body.style.backgroundColor = volume > 40 ? "gray" : "white";
+    document.body.style.backgroundColor = volume > 10 ? "gray" : "white";
 
     // loop
     requestAnimationFrame(update);

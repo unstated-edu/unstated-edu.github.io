@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Sender</title>
+    <style>
+      body {
+        font-family: Arial;
+        text-align: center;
+        padding: 40px;
+        background: #111;
+        color: white;
+      }
+      button {
+        padding: 20px 40px;
+        font-size: 20px;
+        border-radius: 10px;
+        border: none;
+        background: #0088ff;
+        color: white;
+        margin-top: 20px;
+      }
+      #values {
+        margin-top: 30px;
+        font-size: 24px;
+        line-height: 2;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>📱 Sender</h1>
+    <p>Open this on your phone</p>
+    <button onclick="start()">Start</button>
+
+    <div id="values">
+      <div>alpha: <span id="a">—</span></div>
+      <div>beta: <span id="b">—</span></div>
+      <div>gamma: <span id="g">—</span></div>
+    </div>
+
+    <!-- Ably library -->
+    <script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
+    <script>
+      // paste your API key here
+      const API_KEY = "YOUR_API_KEY_HERE";
+
+      const client = new Ably.Realtime(API_KEY);
+      const channel = client.channels.get("motion");
+
+      function start() {
+        // iOS needs explicit permission for gyroscope
+        if (typeof DeviceOrientationEvent.requestPermission === "function") {
+          DeviceOrientationEvent.requestPermission();
+        }
+
+        window.addEventListener("deviceorientation", (e) => {
+          const data = {
+            alpha: Math.round(e.alpha), // compass 0-360
+            beta: Math.round(e.beta), // front/back -180 to 180
+            gamma: Math.round(e.gamma), // left/right -90 to 90
+          };
+
+          // show on screen
+          document.getElementById("a").textContent = data.alpha;
+          document.getElementById("b").textContent = data.beta;
+          document.getElementById("g").textContent = data.gamma;
+
+          // send to Ably
+          channel.publish("update", data);
+        });
+      }
+    </script>
+  </body>
+</html>

@@ -232,15 +232,7 @@ async function detectHands() {
 
         if (distance < PINCH_THRESHOLD) {
           document.body.style.backgroundColor = "black";
-          // do something, e.g. draw a circle at the midpoint
-          const midX = (thumbTip.x + indexTip.x) / 2;
-          const midY = (thumbTip.y + indexTip.y) / 2;
-          ctx.beginPath();
-          ctx.arc(midX, midY, 15, 0, 2 * Math.PI);
-          ctx.fillStyle = "rgba(255, 165, 0, 0.6)";
-          ctx.fill();
-        }
-        else {
+        } else {
           document.body.style.backgroundColor = "white";
         }
       }
