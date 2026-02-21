@@ -31,35 +31,40 @@
     </style>
   </head>
   <body>
-    <div id="info">Waiting for phone... 📱</div>
+    <div id="info">Waiting for phone...</div>
     <div id="ball"></div>
 
-    <!-- Ably library -->
     <script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
     <script>
-      // same API key
-      const API_KEY = "biplaQ.iovzWA:ffx3oR9mKYBjDAfLiHlVJ4KWacO_9mEU6KOocxicrKY;
+      var API_KEY = "YOUR_API_KEY_HERE";
 
-      const client = new Ably.Realtime(API_KEY);
-      const channel = client.channels.get("motion");
+      var client = new Ably.Realtime(API_KEY);
+      var channel = client.channels.get("motion");
 
-      const ball = document.getElementById("ball");
-      const info = document.getElementById("info");
+      var ball = document.getElementById("ball");
+      var info = document.getElementById("info");
 
-      // listen for incoming motion data
-      channel.subscribe("update", (msg) => {
-        const data = msg.data;
+      client.connection.once("connected", function () {
+        console.log("Connected!");
 
-        info.innerHTML = `alpha: ${data.alpha}<br>beta: ${data.beta}<br>gamma: ${data.gamma}`;
+        channel.subscribe("update", function (msg) {
+          console.log("Message received:", msg.data);
 
-        // map gamma (-90 to 90) → horizontal
-        const x = map(data.gamma, -90, 90, 0, window.innerWidth);
+          var data = msg.data;
+          info.innerHTML =
+            "alpha: " +
+            data.alpha +
+            "<br>beta: " +
+            data.beta +
+            "<br>gamma: " +
+            data.gamma;
 
-        // map beta (-90 to 90) → vertical
-        const y = map(data.beta, -90, 90, 0, window.innerHeight);
+          var x = map(data.gamma, -90, 90, 0, window.innerWidth);
+          var y = map(data.beta, -90, 90, 0, window.innerHeight);
 
-        ball.style.left = x + "px";
-        ball.style.top = y + "px";
+          ball.style.left = x + "px";
+          ball.style.top = y + "px";
+        });
       });
 
       function map(value, inMin, inMax, outMin, outMax) {
