@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Receiver</title>
+    <style>
+      body {
+        margin: 0;
+        background: #111;
+        overflow: hidden;
+      }
+      .circle {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        position: absolute;
+        transform: translate(-50%, -50%);
+        transition:
+          left 0.05s,
+          top 0.05s;
+      }
+      #thumb {
+        background: #ff4444;
+      }
+      #index {
+        background: #00ff88;
+      }
+      #info {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        color: white;
+        font-family: Arial;
+        font-size: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="thumb" class="circle"></div>
+    <div id="index" class="circle"></div>
+    <div id="info">Waiting for hand... 👋</div>
+
+    <script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
+    <script>
+      var API_KEY = "biplaQ.iovzWA:ffx3oR9mKYBjDAfLiHlVJ4KWacO_9mEU6KOocxicrKY";
+      var client = new Ably.Realtime(API_KEY);
+      var channel = client.channels.get("fingers");
+
+      var thumbEl = document.getElementById("thumb");
+      var indexEl = document.getElementById("index");
+      var info = document.getElementById("info");
+
+      channel.subscribe("fingers", function (msg) {
+        var data = msg.data;
+
+        // positions are normalized (0-1), scale to screen size
+        var tx = data.thumb.x * window.innerWidth;
+        var ty = data.thumb.y * window.innerHeight;
+        var ix = data.index.x * window.innerWidth;
+        var iy = data.index.y * window.innerHeight;
+
+        thumbEl.style.left = tx + "px";
+        thumbEl.style.top = ty + "px";
+        indexEl.style.left = ix + "px";
+        indexEl.style.top = iy + "px";
+
+        info.textContent = "distance: " + data.distance + "px";
+      });
+    </script>
+  </body>
+</html>
