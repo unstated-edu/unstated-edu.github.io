@@ -1,108 +1,137 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-  <meta name="viewport" content="width=device-width">
-  <title>Sender</title>
-  <style>
-    body { margin: 0; background: #111; }
-    video, canvas { position: absolute; top: 0; left: 0; }
-    #info { position: fixed; bottom: 20px; left: 20px; color: white; font-family: Arial; font-size: 16px; }
-  </style>
-</head>
-<body>
+  <head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Sender</title>
+    <style>
+      body {
+        margin: 0;
+        background: #111;
+      }
+      #webcam,
+      #canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+      #info {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        color: white;
+        font-family: Arial;
+        font-size: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <video id="webcam" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+    <div id="info">Loading model...</div>
 
-  <video id="video" autoplay playsinline></video>
-  <canvas id="canvas"></canvas>
-  <div id="info">Loading...</div>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/hand-pose-detection@2.0.0"></script>
+    <script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
+    <script>
+      var API_KEY = "biplaQ.iovzWA:ffx3oR9mKYBjDAfLiHlVJ4KWacO_9mEU6KOocxicrKY";
+      var client = new Ably.Realtime(API_KEY);
+      var channel = client.channels.get("fingers");
 
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/hand-pose-detection"></script>
-  <script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
-  <script>
-          var API_KEY = "biplaQ.iovzWA:ffx3oR9mKYBjDAfLiHlVJ4KWacO_9mEU6KOocxicrKY";
-    var client  = new Ably.Realtime(API_KEY);
-    var channel = client.channels.get("fingers");
+      var video = document.getElementById("webcam");
+      var canvas = document.getElementById("canvas");
+      var ctx = canvas.getContext("2d");
+      var info = document.getElementById("info");
+      var detector = null;
 
-    var video   = document.getElementById("video");
-    var canvas  = document.getElementById("canvas");
-    var ctx     = canvas.getContext("2d");
-    var info    = document.getElementById("info");
-    var detector = null;
+      var lastPublish = 0;
 
-    async function setup() {
-      // start camera
-      var stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      video.srcObject = stream;
+      async function loadModel() {
+        await tf.setBackend("webgl");
+        await tf.ready();
 
-      await new Promise(function(resolve) {
-        video.onloadeddata = resolve;
-      });
-
-      canvas.width  = video.videoWidth;
-      canvas.height = video.videoHeight;
-      video.width   = video.videoWidth;
-      video.height  = video.videoHeight;
-
-      // load model
-      await tf.setBackend("webgl");
-      detector = await handPoseDetection.createDetector(
-        handPoseDetection.SupportedModels.MediaPipeHands,
-        { runtime: "mediapipe", solutionPath: "https://cdn.jsdelivr.net/npm/@mediapipe/hands", maxHands: 1 }
-      );
-
-      info.textContent = "Show your hand!";
-      detect();
-    }
-
-    async function detect() {
-      var hands = await detector.estimateHands(video);
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      if (hands.length > 0) {
-        var keypoints = hands[0].keypoints;
-
-        // thumb tip = 4, index tip = 8
-        var thumb = keypoints[4];
-        var index = keypoints[8];
-
-        // draw circles on canvas
-        drawCircle(thumb.x, thumb.y, "#ff4444");
-        drawCircle(index.x, index.y, "#00ff88");
-
-        // distance between fingers
-        var dx = index.x - thumb.x;
-        var dy = index.y - thumb.y;
-        var distance = Math.round(Math.sqrt(dx * dx + dy * dy));
-
-        info.textContent = "distance: " + distance + "px";
-
-        // send normalized positions (0 to 1) so receiver can scale to its screen
-        channel.publish("fingers", {
-          thumb: {
-            x: thumb.x / canvas.width,
-            y: thumb.y / canvas.height
+        detector = await handPoseDetection.createDetector(
+          handPoseDetection.SupportedModels.MediaPipeHands,
+          {
+            runtime: "mediapipe",
+            solutionPath:
+              "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915",
+            modelType: "lite",
+            maxHands: 1,
           },
-          index: {
-            x: index.x / canvas.width,
-            y: index.y / canvas.height
-          },
-          distance: distance
+        );
+
+        info.textContent = "Model loaded! Starting camera...";
+        startCamera();
+      }
+
+      async function startCamera() {
+        var stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+        });
+        video.srcObject = stream;
+
+        video.addEventListener("loadeddata", function () {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          video.width = video.videoWidth;
+          video.height = video.videoHeight;
+          info.textContent = "Show your hand!";
+          detectHands();
         });
       }
 
-      requestAnimationFrame(detect);
-    }
+      async function detectHands() {
+        var hands = await detector.estimateHands(video, {
+          flipHorizontal: false,
+        });
 
-    function drawCircle(x, y, color) {
-      ctx.beginPath();
-      ctx.arc(x, y, 20, 0, 2 * Math.PI);
-      ctx.fillStyle = color;
-      ctx.fill();
-    }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    setup();
-  </script>
+        if (hands.length > 0) {
+          var keypoints = hands[0].keypoints;
 
-</body>
+          // thumb tip = 4, index tip = 8
+          var thumb = keypoints[4];
+          var index = keypoints[8];
+
+          // draw circles
+          drawCircle(thumb.x, thumb.y, "red");
+          drawCircle(index.x, index.y, "blue");
+
+          // distance
+          var dx = index.x - thumb.x;
+          var dy = index.y - thumb.y;
+          var distance = Math.round(Math.sqrt(dx * dx + dy * dy));
+
+          info.textContent = "distance: " + distance + "px";
+
+          // send normalized positions (0 to 1)
+          var now = Date.now();
+          if (now - lastPublish > 50) {
+            // pubblica max ogni 50ms = 20 volte al secondo
+            lastPublish = now;
+            channel.publish("fingers", {
+              thumb: { x: thumb.x / canvas.width, y: thumb.y / canvas.height },
+              index: { x: index.x / canvas.width, y: index.y / canvas.height },
+              distance: distance,
+            });
+          }
+        }
+
+        requestAnimationFrame(detectHands);
+      }
+
+      function drawCircle(x, y, color) {
+        ctx.beginPath();
+        ctx.arc(x, y, 20, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+
+      loadModel();
+    </script>
+  </body>
 </html>

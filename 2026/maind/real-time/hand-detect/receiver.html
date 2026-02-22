@@ -12,6 +12,8 @@
         width: 60px;
         height: 60px;
         border-radius: 50%;
+        top: -100px;
+        left: -100px;
         position: absolute;
         transform: translate(-50%, -50%);
         transition:
@@ -19,10 +21,10 @@
           top 0.05s;
       }
       #thumb {
-        background: #ff4444;
+        background: red;
       }
       #index {
-        background: #00ff88;
+        background: blue;
       }
       #info {
         position: fixed;
@@ -37,7 +39,7 @@
   <body>
     <div id="thumb" class="circle"></div>
     <div id="index" class="circle"></div>
-    <div id="info">Waiting for hand... 👋</div>
+    <div id="info">Waiting for hand...</div>
 
     <script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
     <script>
