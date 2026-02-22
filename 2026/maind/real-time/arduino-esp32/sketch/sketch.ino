@@ -3,8 +3,8 @@
 #include <PubSubClient.h>
 
 // ---------------- WIFI ----------------
-const char* ssid     = "youarefuckingnoisy";
-const char* password = "Pablo2017";
+const char* ssid     = "0x000";
+const char* password = "leoleoleo";
 
 // ---------------- ABLY MQTT (OFFICIAL) ----------------
 const char* mqtt_host = "main.mqtt.ably.net";
@@ -18,7 +18,7 @@ const char* mqtt_pass = "ffx3oR9mKYBjDAfLiHlVJ4KWacO_9mEU6KOocxicrKY";
 WiFiClientSecure secureClient;
 PubSubClient client(secureClient);
 
-// valori fake per test
+//  fake number for test
 int alphaVal = 0;   // 0..359
 int betaVal  = -90; // -90..90
 int gammaVal = -90; // -90..90
