@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Receiver</title>
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: white;
+      font-family: Arial;
+    }
+    #box {
+      width: 100px;
+      height: 100px;
+      background: #00ff88;
+      border-radius: 20px;
+      transition: width 0.1s, height 0.1s;
+    }
+    #info {
+      margin-top: 30px;
+      font-size: 24px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="box"></div>
+  <div id="info">Waiting for phone... 📱</div>
+
+  <script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
+  <script>
+    var API_KEY = "YOUR_API_KEY_HERE";
+    var client  = new Ably.Realtime(API_KEY);
+    var channel = client.channels.get("pinch");
+
+    var box  = document.getElementById("box");
+    var info = document.getElementById("info");
+
+    channel.subscribe("pinch", function(msg) {
+      var distance = msg.data.distance;
+
+      info.textContent = "distance: " + distance + "px";
+
+      // map distance (0-400) to box size (50-400)
+      var size = map(distance, 0, 400, 50, 400);
+      box.style.width  = size + "px";
+      box.style.height = size + "px";
+    });
+
+    function map(value, inMin, inMax, outMin, outMax) {
+      return (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+    }
+  </script>
+
+</body>
+</html>
