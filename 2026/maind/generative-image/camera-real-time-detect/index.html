@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Camera Vision Narrator (OpenAI) — No Server</title>
+
+    <style>
+      .grid {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 16px;
+        align-items: start;
+      }
+      .card {
+        display: flex;
+        flex-direction: column;
+        align-items: start;
+        justify-content: start;
+        border-radius: 14px;
+        padding: 14px;
+      }
+
+      input,
+      textarea,
+      select {
+        width: 80%;
+        padding: 10px;
+        font: inherit;
+      }
+      textarea {
+        min-height: 86px;
+        resize: vertical;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:disabled {
+        cursor: not-allowed;
+      }
+      video,
+      canvas {
+        width: 100%;
+        border-radius: 14px;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="grid">
+      <div class="card">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="canvas" style="display: none"></canvas>
+
+        <div class="row">
+          <button id="btnStartCam">Start Camera</button>
+          <button id="btnStart" disabled>Start Narration</button>
+          <button id="btnStop" disabled>Stop</button>
+        </div>
+
+        <div class="row">
+          <span id="status" class="pill">Idle</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <label>OpenAI API Key</label>
+        <input
+          id="apiKey"
+          type="password"
+          placeholder="sk-..."
+          autocomplete="off"
+        />
+
+        <label>Model</label>
+        <select id="model">
+          <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+          <option value="gpt-4.1">gpt-4.1</option>
+        </select>
+
+        <label>Frame interval (ms)</label>
+        <input id="interval" type="number" min="300" step="100" value="6000" />
+
+        <label>Prompt</label>
+        <textarea id="prompt">
+Describe what you see in 1–2 short sentences. Be concrete (objects, people, actions). If nothing is clear, say "uncertain".</textarea
+        >
+
+        <div class="row" style="margin-top: 10px">
+          <label
+            style="margin: 0; display: flex; gap: 10px; align-items: center"
+          >
+            <input
+              id="speak"
+              type="checkbox"
+              checked
+              style="width: auto; transform: scale(1.2)"
+            />
+            Speak out loud
+          </label>
+
+          <label
+            style="
+              margin: 0;
+              display: flex;
+              gap: 10px;
+              align-items: center;
+              display: none;
+            "
+          >
+            <input
+              id="skipIfBusy"
+              type="checkbox"
+              checked
+              style="width: auto; transform: scale(1.2)"
+            />
+            Skip frames if request in-flight
+          </label>
+        </div>
+      </div>
+    </div>
+    <pre id="log"></pre>
+
+    <script>
+      // Small helpers
+      const $ = (id) => document.getElementById(id);
+      const logEl = $("log");
+      const statusEl = $("status");
+
+      const video = $("video");
+      const canvas = $("canvas");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+      let stream = null;
+      let timer = null;
+      let inFlight = false;
+      let lastSpoken = "";
+      let lastRequestAt = 0;
+
+      // Start camera
+      $("btnStartCam").addEventListener("click", async () => {
+        try {
+          $("btnStartCam").disabled = true;
+          setStatus("Requesting camera… / Richiedo camera…");
+          await startCamera();
+        } catch (e) {
+          $("btnStartCam").disabled = false;
+          setStatus("Camera denied / Camera negata");
+          logLine(`Camera error: ${e.message || String(e)}`);
+        }
+      });
+
+      // Start narration
+      $("btnStart").addEventListener("click", () => {
+        const intervalMs = Math.max(300, Number($("interval").value || 1000));
+        logEl.textContent = "";
+        setStatus("Starting…");
+        $("btnStop").disabled = false;
+        $("btnStart").disabled = true;
+
+        // Poll frames
+        timer = setInterval(() => {
+          tick();
+        }, intervalMs);
+        tick();
+      });
+
+      $("btnStop").addEventListener("click", () => {
+        if (timer) clearInterval(timer);
+        timer = null;
+        $("btnStart").disabled = false;
+        $("btnStop").disabled = true;
+        setStatus("Paused / In pausa");
+      });
+
+      async function startCamera() {
+        // Ask for camera permission
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" }, // prefer back camera on mobile
+        });
+        video.srcObject = stream;
+
+        // Wait for metadata so videoWidth/videoHeight are ready
+        await new Promise((resolve) => {
+          if (video.readyState >= 2) return resolve();
+          video.onloadedmetadata = () => resolve();
+        });
+
+        setStatus("Camera ready");
+        $("btnStart").disabled = false;
+      }
+
+      //capture the frame and export it as a data URL
+      function captureFrameAsDataURL(quality = 0.75) {
+        // Draw current video frame to canvas and export JPEG data URL
+        const w = video.videoWidth;
+        const h = video.videoHeight;
+
+        // Resize to reduce bandwidth (optional)
+        const maxW = 640;
+        const scale = Math.min(1, maxW / w);
+        const cw = Math.round(w * scale);
+        const ch = Math.round(h * scale);
+
+        canvas.width = cw;
+        canvas.height = ch;
+        ctx.drawImage(video, 0, 0, cw, ch);
+
+        return canvas.toDataURL("image/jpeg", quality);
+      }
+
+      //take the frame and describe it
+      async function describeFrame(dataUrl) {
+        const apiKey = $("apiKey").value.trim();
+        const model = $("model").value;
+        const prompt = $("prompt").value.trim();
+
+        if (!apiKey) throw new Error("Missing API key ");
+
+        const body = {
+          model,
+          input: [
+            {
+              role: "user",
+              content: [
+                { type: "input_text", text: prompt },
+                { type: "input_image", image_url: dataUrl },
+              ],
+            },
+          ],
+        };
+
+        const res = await fetch("https://api.openai.com/v1/responses", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json?.error?.message || `HTTP ${res.status}`);
+        }
+
+        // Try to extract text output from common fields
+        const text =
+          json.output_text ||
+          json?.output?.[0]?.content
+            ?.map((c) => c.text)
+            .filter(Boolean)
+            .join("") ||
+          JSON.stringify(json);
+
+        return text.trim();
+      }
+
+      // Poll frames
+      async function tick() {
+        const intervalMs = Math.max(300, Number($("interval").value || 1000));
+
+        const now = Date.now();
+        if ($("skipIfBusy").checked && inFlight) return;
+
+        // Basic anti-spam: don't send if called too soon
+        if (now - lastRequestAt < intervalMs * 0.75) return;
+        lastRequestAt = now;
+
+        const dataUrl = captureFrameAsDataURL(0.72);
+
+        inFlight = true;
+        setStatus("Thinking…");
+
+        const t0 = performance.now();
+        try {
+          const text = await describeFrame(dataUrl);
+          const dt = Math.round(performance.now() - t0);
+
+          setStatus("Live");
+
+          const ts = new Date().toLocaleTimeString();
+          logLine(`[${ts}] ${text}`);
+          speak(text);
+        } catch (err) {
+          setStatus("Error / Errore");
+          logLine(`Error: ${err.message || String(err)}`);
+          // If you see "Failed to fetch" it may be CORS/network.
+          // IT: Se vedi "Failed to fetch" può essere CORS/rete.
+        } finally {
+          inFlight = false;
+        }
+      }
+
+      function setStatus(text) {
+        statusEl.textContent = text;
+      }
+
+      function logLine(text) {
+        logEl.textContent += text + "\n";
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      function stopEverything() {
+        if (timer) clearInterval(timer);
+        timer = null;
+
+        if (stream) {
+          for (const track of stream.getTracks()) track.stop();
+          stream = null;
+        }
+
+        inFlight = false;
+        setStatus("Stopped / Fermato");
+        $("btnStart").disabled = true;
+        $("btnStop").disabled = true;
+        $("btnStartCam").disabled = false;
+      }
+
+      function speak(text) {
+        // Browser TTS
+        if (!$("speak").checked) return;
+        if (!("speechSynthesis" in window)) return;
+
+        // Avoid repeating the same sentence
+        if (text.trim() === lastSpoken.trim()) return;
+        lastSpoken = text;
+
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = "en-US"; // change if you want Italian voice
+        utter.rate = 1.05;
+        window.speechSynthesis.speak(utter);
+      }
+      window.addEventListener("beforeunload", stopEverything);
+    </script>
+  </body>
+</html>

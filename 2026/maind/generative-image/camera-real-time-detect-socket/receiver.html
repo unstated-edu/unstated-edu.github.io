@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Receiver</title>
+  </head>
+  <body>
+    <div id="info"></div>
+
+    <script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
+    <script>
+      var API_KEY = "biplaQ.iovzWA:ffx3oR9mKYBjDAfLiHlVJ4KWacO_9mEU6KOocxicrKY";
+      var client = new Ably.Realtime(API_KEY);
+      var channel = client.channels.get("prompts");
+      var info = document.getElementById("info");
+
+      channel.subscribe("prompts", function (msg) {
+        info.textContent = msg.data.prompt;
+
+        //check if the prompt contains the word "Iphone, iphone, phone"
+        if(msg.data.prompt.includes("phone") || msg.data.prompt.includes("iPhone") || msg.data.prompt.includes("smartphone")) {
+          document.body.style.backgroundColor = "red";
+        } else {
+          document.body.style.backgroundColor = "white";
+        }
+      });
+    </script>
+  </body>
+</html>

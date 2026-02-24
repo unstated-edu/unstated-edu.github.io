@@ -3,8 +3,8 @@
 #include <PubSubClient.h>
 
 // ---------------- WIFI ----------------
-const char* ssid     = "0x000";
-const char* password = "leoleoleo";
+const char* ssid     = "FabulousNet";
+const char* password = "25jan2022";
 
 // ---------------- ABLY MQTT (OFFICIAL) ----------------
 const char* mqtt_host = "main.mqtt.ably.net";
@@ -12,6 +12,9 @@ const int   mqtt_port = 8883;
 
 // username = API_KEY_NAME
 // password = API_KEY_SECRET
+
+
+
 const char* mqtt_user = "biplaQ.iovzWA";
 const char* mqtt_pass = "ffx3oR9mKYBjDAfLiHlVJ4KWacO_9mEU6KOocxicrKY";
 

@@ -111,7 +111,7 @@
           // send normalized positions (0 to 1)
           var now = Date.now();
           if (now - lastPublish > 50) {
-            // pubblica max ogni 50ms = 20 volte al secondo
+            // publish every 50ms = 20 times per second
             lastPublish = now;
             channel.publish("fingers", {
               thumb: { x: thumb.x / canvas.width, y: thumb.y / canvas.height },

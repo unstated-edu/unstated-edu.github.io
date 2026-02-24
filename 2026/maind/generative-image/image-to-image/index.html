@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>OpenAI Image-to-Image (no server)</title>
+    <style>
+      #previewIn {
+        display: none;
+      }
+      #previewOut {
+        display: none;
+      }
+      #log {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <label>OpenAI API Key</label><br />
+    <input
+      id="apiKey"
+      type="password"
+      placeholder="sk-..."
+      autocomplete="off"
+    /><br /><br />
+
+    <label>Start image</label><br />
+    <input id="file" type="file" accept="image/*" /><br /><br />
+
+    <label>Prompt</label><br />
+    <textarea id="prompt" placeholder="Prompt"></textarea><br /><br />
+
+    <label>Model</label><br />
+    <select id="model">
+      <option value="gpt-image-1">gpt-image-1</option></select
+    ><br /><br />
+
+    <label>Size</label><br />
+    <select id="size">
+      <option value="1024x1024">1024x1024</option>
+      <option value="1024x1536">1024x1536</option>
+      <option value="1536x1024">1536x1024</option></select
+    ><br /><br />
+
+    <div>
+      <button id="go">Generate</button><br /><br />
+      <span id="status" class="hint"></span>
+    </div>
+    <label>Original</label>
+    <img id="previewIn" alt="original preview" /><br /><br />
+    <label>Output</label>
+    <img id="previewOut" alt="output preview" /><br /><br />
+
+    <pre id="log"></pre>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const logEl = $("log");
+      const statusEl = $("status");
+      const btn = $("go");
+      const previewIn = $("previewIn");
+      const previewOut = $("previewOut");
+
+      btn.addEventListener("click", async () => {
+        try {
+          const apiKey = $("apiKey").value.trim();
+          const file = $("file").files?.[0];
+          const prompt = $("prompt").value.trim();
+          const model = $("model").value;
+          const size = $("size").value;
+
+          logEl.textContent = "";
+          previewOut.removeAttribute("src");
+
+          if (!apiKey) throw new Error("Insert your API key.");
+          if (!file) throw new Error("Select an image.");
+          if (!prompt) throw new Error("Write a prompt.");
+
+          btn.disabled = true;
+          setStatus("Uploading…");
+
+          // (optional) convert to PNG to avoid format problems
+          const pngBlob = await fileToPngBlob(file);
+          const pngFile = new File([pngBlob], "input.png", {
+            type: "image/png",
+          });
+
+          const fd = new FormData();
+          fd.append("model", model);
+          fd.append("prompt", prompt);
+          fd.append("size", size);
+          fd.append("image", pngFile);
+
+          // Note: /v1/images/edits typically returns b64_json (based on model/params)
+          const res = await fetch("https://api.openai.com/v1/images/edits", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: fd,
+          });
+
+          const text = await res.text();
+          let json;
+          try {
+            json = JSON.parse(text);
+          } catch {
+            json = null;
+          }
+
+          if (!res.ok) {
+            log("HTTP", res.status, res.statusText);
+            log("Body:", json ?? text);
+            throw new Error("Richiesta fallita. Vedi Log.");
+          }
+
+          log("OK:", json);
+
+          const b64 = json?.data?.[0]?.b64_json;
+          const url = json?.data?.[0]?.url;
+
+          if (b64) {
+            previewOut.src = "data:image/png;base64," + b64;
+            previewOut.style.display = "block";
+          } else if (url) {
+            previewOut.src = url;
+            previewOut.style.display = "block";
+          } else {
+            throw new Error(
+              "Response without image (neither b64_json nor url).",
+            );
+          }
+
+          setStatus("Done.");
+        } catch (err) {
+          setStatus("");
+          log("Error:", err?.message || String(err));
+          if (String(err).toLowerCase().includes("failed to fetch")) {
+            log("CORS blocked.");
+          }
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      // Convert any image to PNG (some endpoints require PNG)
+      async function fileToPngBlob(file) {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result);
+          r.onerror = reject;
+          r.readAsDataURL(file);
+        });
+
+        const img = await new Promise((resolve, reject) => {
+          const i = new Image();
+          i.onload = () => resolve(i);
+          i.onerror = reject;
+          i.src = dataUrl;
+        });
+
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0);
+
+        const blob = await new Promise((resolve) =>
+          canvas.toBlob(resolve, "image/png"),
+        );
+        if (!blob) throw new Error("Impossibile convertire in PNG.");
+        return blob;
+      }
+
+      $("file").addEventListener("change", () => {
+        const f = $("file").files?.[0];
+        if (!f) return;
+        previewIn.src = URL.createObjectURL(f);
+        previewOut.removeAttribute("src");
+        previewIn.style.display = "block";
+        logEl.textContent = "";
+        log("File:", f.name, `(${Math.round(f.size / 1024)} KB)`, f.type);
+      });
+
+      function log(...args) {
+        logEl.textContent +=
+          args
+            .map((a) =>
+              typeof a === "string" ? a : JSON.stringify(a, null, 2),
+            )
+            .join(" ") + "\n";
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      function setStatus(msg) {
+        statusEl.textContent = msg || "";
+      }
+    </script>
+  </body>
+</html>
