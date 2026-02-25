@@ -10,34 +10,36 @@ module.exports = (env, argv) => {
 
     output: {
       filename: "bundle.[contenthash].js",
-      path: path.resolve(__dirname, "dist"),
+      // Vercel serve i file statici dalla cartella configurata in vercel.json
+      path: path.resolve(__dirname, "public/dist"),
       clean: true,
+      publicPath: "/dist/",
     },
 
     devServer: {
-      static: "./dist",
+      static: "./public",
       port: 3000,
       open: true,
-      // HTTPS needed for getUserMedia on localhost (Chrome allows http://localhost,
-      // but if you test on a real device over LAN you'll need https)
-      // https: true,
+      // In dev, proxia /api verso una funzione locale (vedi scripts in package.json)
+      proxy: [
+        {
+          context: ["/api"],
+          target: "http://localhost:3001",
+        },
+      ],
     },
 
     plugins: [
-      // Reads .env and exposes vars as process.env.VAR_NAME in your JS
-      new Dotenv({
-        path: "./.env",
-        safe: true,       // requires a .env.example file listing required vars
-        allowEmptyValues: false,
-      }),
+      // dotenv-webpack serve SOLO in locale per il dev server
+      // Su Vercel le env vars vengono iniettate direttamente da Vercel, non servono qui
+      ...(isDev ? [new Dotenv({ path: "./.env", safe: true })] : []),
 
       new HtmlWebpackPlugin({
         template: "./public/index.html",
-        // inject the bundle <script> automatically
+        filename: "../index.html", // scrive in /public/index.html
       }),
     ],
 
-    // Source maps in dev, none in prod
     devtool: isDev ? "eval-source-map" : false,
   };
 };

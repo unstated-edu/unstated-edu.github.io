@@ -1,7 +1,6 @@
+// Nessuna chiave API qui! Il frontend chiama /api/describe
+// che è la serverless function su Vercel (o il dev-api.js in locale).
 
-const API_KEY = process.env.OPENAI_API_KEY;
-
-// ─── DOM helpers ────────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
 const logEl = $("log");
 const statusEl = $("status");
@@ -9,14 +8,13 @@ const video = $("video");
 const canvas = $("canvas");
 const ctx = canvas.getContext("2d", { willReadFrequently: true });
 
-// ─── State ───────────────────────────────────────────────────────────────────
 let stream = null;
 let timer = null;
 let inFlight = false;
 let lastSpoken = "";
 let lastRequestAt = 0;
 
-// ─── Camera ──────────────────────────────────────────────────────────────────
+// ─── Camera ───────────────────────────────────────────────────────────────────
 $("btnStartCam").addEventListener("click", async () => {
   try {
     $("btnStartCam").disabled = true;
@@ -38,14 +36,13 @@ $("btnStartCam").addEventListener("click", async () => {
   }
 });
 
-// ─── Narration controls ───────────────────────────────────────────────────────
+// ─── Controls ─────────────────────────────────────────────────────────────────
 $("btnStart").addEventListener("click", () => {
-  const ms = intervalMs();
   logEl.textContent = "";
   setStatus("Starting…");
   $("btnStop").disabled = false;
   $("btnStart").disabled = true;
-  timer = setInterval(tick, ms);
+  timer = setInterval(tick, intervalMs());
   tick();
 });
 
@@ -57,7 +54,7 @@ $("btnStop").addEventListener("click", () => {
   setStatus("Paused");
 });
 
-// ─── Core logic ───────────────────────────────────────────────────────────────
+// ─── Core ─────────────────────────────────────────────────────────────────────
 function intervalMs() {
   return Math.max(300, Number($("interval").value || 1000));
 }
@@ -72,39 +69,21 @@ function captureFrame(quality = 0.72) {
   return canvas.toDataURL("image/jpeg", quality);
 }
 
-async function describeFrame(dataUrl) {
-  if (!API_KEY || API_KEY === "sk-...") {
-    throw new Error("Metti la tua OPENAI_API_KEY nel file .env e rifai il build!");
-  }
-
-  const res = await fetch("https://api.openai.com/v1/responses", {
+async function describeFrame(imageDataUrl) {
+  // Chiama la serverless function — stessa origine, niente CORS
+  const res = await fetch("/api/describe", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${API_KEY}`,
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: $("model").value,
-      input: [
-        {
-          role: "user",
-          content: [
-            { type: "input_text", text: $("prompt").value.trim() },
-            { type: "input_image", image_url: dataUrl },
-          ],
-        },
-      ],
+      prompt: $("prompt").value.trim(),
+      imageDataUrl,
     }),
   });
 
   const json = await res.json();
-  if (!res.ok) throw new Error(json?.error?.message || `HTTP ${res.status}`);
-
-  return (
-    json.output_text ||
-    json?.output?.[0]?.content?.map((c) => c.text).filter(Boolean).join("") ||
-    ""
-  ).trim();
+  if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+  return json.text;
 }
 
 async function tick() {
@@ -113,12 +92,12 @@ async function tick() {
   if (now - lastRequestAt < intervalMs() * 0.75) return;
   lastRequestAt = now;
 
-  const dataUrl = captureFrame();
+  const imageDataUrl = captureFrame();
   inFlight = true;
   setStatus("Thinking…");
 
   try {
-    const text = await describeFrame(dataUrl);
+    const text = await describeFrame(imageDataUrl);
     setStatus("Live");
     logLine(`[${new Date().toLocaleTimeString()}] ${text}`);
     speak(text);
@@ -131,12 +110,10 @@ async function tick() {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function setStatus(text) {
-  statusEl.textContent = text;
-}
+function setStatus(t) { statusEl.textContent = t; }
 
-function logLine(text) {
-  logEl.textContent += text + "\n";
+function logLine(t) {
+  logEl.textContent += t + "\n";
   logEl.scrollTop = logEl.scrollHeight;
 }
 

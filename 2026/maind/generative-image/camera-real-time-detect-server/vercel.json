@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "public",
+  "functions": {
+    "api/describe.js": {
+      "memory": 256,
+      "maxDuration": 30
+    }
+  }
+}

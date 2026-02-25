@@ -3,84 +3,27 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Camera Vision</title>
+    <title>Camera Vision Narrator</title>
     <style>
-      body {
-        font-family: system-ui, sans-serif;
-        padding: 16px;
-      }
-      .grid {
-        display: grid;
-        grid-template-columns: 1.2fr 1fr;
-        gap: 16px;
-        align-items: start;
-      }
-      .card {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        border-radius: 14px;
-        padding: 14px;
-        background: #f9f9f9;
-      }
-      label {
-        font-weight: 600;
-        font-size: 0.9em;
-      }
-      input,
-      textarea,
-      select {
-        width: 100%;
-        padding: 10px;
-        font: inherit;
-        box-sizing: border-box;
-      }
-      textarea {
-        min-height: 86px;
-        resize: vertical;
-      }
-      button {
-        cursor: pointer;
-        padding: 8px 16px;
-      }
-      button:disabled {
-        cursor: not-allowed;
-        opacity: 0.5;
-      }
-      video,
-      canvas {
-        width: 100%;
-        border-radius: 14px;
-        background: #000;
-      }
-      .row {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        align-items: center;
-      }
-      #status {
-        font-size: 0.85em;
-        color: #555;
-      }
-      pre#log {
-        background: #111;
-        color: #0f0;
-        padding: 12px;
-        border-radius: 10px;
-        font-size: 0.8em;
-        min-height: 80px;
-        max-height: 220px;
-        overflow-y: auto;
-        margin-top: 16px;
-      }
+      body { font-family: system-ui, sans-serif; padding: 16px; }
+      .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; align-items: start; }
+      .card { display: flex; flex-direction: column; gap: 8px; border-radius: 14px; padding: 14px; background: #f9f9f9; }
+      label { font-weight: 600; font-size: .9em; }
+      input, textarea, select { width: 100%; padding: 10px; font: inherit; box-sizing: border-box; }
+      textarea { min-height: 86px; resize: vertical; }
+      button { cursor: pointer; padding: 8px 16px; }
+      button:disabled { cursor: not-allowed; opacity: .5; }
+      video, canvas { width: 100%; border-radius: 14px; background: #000; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+      #status { font-size: .85em; color: #555; }
+      pre#log { background: #111; color: #0f0; padding: 12px; border-radius: 10px; font-size: .8em; min-height: 80px; max-height: 220px; overflow-y: auto; margin-top: 16px; }
     </style>
   </head>
   <body>
     <div class="grid">
       <div class="card">
         <video id="video" autoplay playsinline muted></video>
-        <canvas id="canvas" style="display: none"></canvas>
+        <canvas id="canvas" style="display:none"></canvas>
         <div class="row">
           <button id="btnStartCam">Start Camera</button>
           <button id="btnStart" disabled>Start Narration</button>
@@ -88,37 +31,22 @@
         </div>
         <span id="status">Idle</span>
       </div>
-
       <div class="card">
         <label>Model</label>
         <select id="model">
           <option value="gpt-4.1-mini">gpt-4.1-mini</option>
           <option value="gpt-4.1">gpt-4.1</option>
         </select>
-
         <label>Frame interval (ms)</label>
         <input id="interval" type="number" min="300" step="100" value="6000" />
-
         <label>Prompt</label>
-        <textarea id="prompt">
-Describe what you see in 1–2 short sentences. Be concrete (objects, people, actions). If nothing is clear, say "uncertain".</textarea
-        >
-
-        <label
-          style="
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            font-weight: normal;
-          "
-        >
-          <input id="speak" type="checkbox" checked style="width: auto" />
+        <textarea id="prompt">Describe what you see in 1–2 short sentences. Be concrete (objects, people, actions). If nothing is clear, say "uncertain".</textarea>
+        <label style="display:flex; gap:10px; align-items:center; font-weight:normal;">
+          <input id="speak" type="checkbox" checked style="width:auto;" />
           Speak out loud
         </label>
       </div>
     </div>
-
     <pre id="log"></pre>
-    <!-- bundle injected by HtmlWebpackPlugin -->
   </body>
 </html>
